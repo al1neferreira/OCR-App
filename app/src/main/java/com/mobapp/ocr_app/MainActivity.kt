@@ -1,31 +1,33 @@
 package com.mobapp.ocr_app
 
+
 import android.Manifest
-import android.R.attr.rotation
 import android.app.Activity
 import android.content.Intent
 import android.graphics.BitmapFactory
-import android.hardware.camera2.CameraAccessException
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
 import android.icu.text.SimpleDateFormat
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.SparseIntArray
-import android.view.Surface
+import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
@@ -38,30 +40,35 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textView: TextView
     private lateinit var imageFile: File
     private lateinit var photoURI: Uri
+    private lateinit var captureButton: Button
+    private lateinit var scannerLauncher: ActivityResultLauncher<IntentSenderRequest>
 
-    private val takePicture = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val imageBitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
-            imageView.setImageBitmap(imageBitmap)
+    private val takePicture =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val imageBitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
+                imageView.setImageBitmap(imageBitmap)
+                captureButton.visibility = View.VISIBLE
 
-            val image = InputImage.fromFilePath(this, photoURI)
-            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            recognizer.process(image)
-                .addOnSuccessListener { visionText ->
-                    val textoExtraido = visionText.text
-                    textView.text = "📝 Texto Extraído:\n$textoExtraido"
-                }
-                .addOnFailureListener {
-                    textView.text = "Erro ao reconhecer texto"
-                }
+                val image = InputImage.fromFilePath(this, photoURI)
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                recognizer.process(image)
+                    .addOnSuccessListener { visionText ->
+                        processRecognizedText(visionText)
+                    }
+                    .addOnFailureListener {
+                        textView.text = "Erro ao reconhecer texto"
+                    }
+            }
         }
-    }
 
-    private val requestPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            launchCamera()
+
+    private val requestPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                launchCamera()
+            }
         }
-    }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,13 +82,41 @@ class MainActivity : AppCompatActivity() {
         }
         imageView = findViewById<ImageView>(R.id.imageView)
         textView = findViewById<TextView>(R.id.textView)
-        val captureButton = findViewById<Button>(R.id.captureButton)
+        captureButton = findViewById(R.id.captureButton)
+        val scanButton = findViewById<Button>(R.id.scanButton)
 
         captureButton.setOnClickListener {
             requestPermission.launch(Manifest.permission.CAMERA)
         }
 
+        scanButton.setOnClickListener {
+            startDocumentScanner()
+        }
+
+        scannerLauncher =
+            registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+                if (result.resultCode == Activity.RESULT_OK) {
+                    val scanningResult =
+                        GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+                    scanningResult?.pages?.firstOrNull()?.imageUri?.let { uri ->
+                        imageView.setImageURI(uri)
+                        captureButton.visibility = View.VISIBLE
+                        val image = InputImage.fromFilePath(this, uri)
+                        val recognizer =
+                            TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                        recognizer.process(image)
+                            .addOnSuccessListener { visionText ->
+                                processRecognizedText(visionText)
+                            }
+                            .addOnFailureListener {
+                                textView.text = "Erro ao reconhecer texto"
+                            }
+                    }
+                }
+            }
+
     }
+
 
     private fun launchCamera() {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
@@ -92,5 +127,128 @@ class MainActivity : AppCompatActivity() {
             putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
         }
         takePicture.launch(intent)
+    }
+
+
+    private fun startDocumentScanner() {
+        val options = GmsDocumentScannerOptions.Builder()
+            .setGalleryImportAllowed(false)
+            .setPageLimit(1)
+            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+            .setScannerMode(GmsDocumentScannerOptions.CAPTURE_MODE_AUTO)
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_BASE)
+            .build()
+
+        val scanner = GmsDocumentScanning.getClient(options)
+        scanner.getStartScanIntent(this)
+            .addOnSuccessListener { intentSender ->
+                scannerLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+            }
+            .addOnFailureListener { e ->
+                Log.e("DocumentScanner", "Erro ao iniciar o scanner: ${e.message}")
+            }
+    }
+
+
+    private fun extractName(texto: String): String {
+        val nomeRegex = Regex("(?i)nome[:\\s]*([a-zà-ú]+(?:\\s[a-zà-ú]+)+)")
+        return nomeRegex.find(texto)?.groupValues?.get(1)?.trim() ?: "Nome não encontrado"
+    }
+
+
+    private fun extractCPF(texto: String): String {
+        val cpfRegex = Regex("\\b\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}\\b|\\b\\d{11}\\b")
+        return cpfRegex.find(texto)?.value ?: "CPF não encontrado"
+    }
+
+
+    private fun extractFiliation(texto: String): String {
+        val filiacaoRegex = Regex("(FILIA[ÇC][ÃA]O)[:\\s]+([A-ZÁÉÍÓÚÂÊÔÃÕÇ\\s]{5,})")
+        return filiacaoRegex.find(texto)?.groupValues?.get(2)?.trim() ?: "Filiação não encontrada"
+    }
+
+
+    private fun processRecognizedText(result: Text) {
+        val resultText = result.text
+        val nome = extractName(resultText)
+        val cpf = extractCPF(resultText)
+        val filiacao = extractFiliation(resultText)
+
+        val builder = StringBuilder()
+        //builder.append("📝 Texto completo:\n$resultText\n\n")
+        builder.append("🔍 Campos principais:\n")
+        builder.append("Nome: $nome\n")
+        builder.append("CPF: $cpf\n")
+        builder.append("Filiação: $filiacao\n\n")
+
+        builder.append("🔍 Blocos Detalhados:\n")
+        for (block in result.textBlocks) {
+            builder.append("📦 Bloco: ${block.text}\n")
+            //builder.append("Posição: ${block.boundingBox}\n")
+            for (line in block.lines) {
+                builder.append("➖ Linha: ${line.text} (${line.boundingBox})\n")
+                for (element in line.elements) {
+                    builder.append("• Palavra: ${element.text} (${element.boundingBox})\n")
+                    val confidence = element.confidence
+                    builder.append(
+                        "Elemento: ${element.text} (Nivel de confiança: ${
+                            "%.2f".format(
+                                confidence
+                            )
+                        })\n"
+                    )
+                }
+            }
+            builder.append("\n")
+        }
+
+        textView.text = builder.toString()
+        evaluateConfidenceMedia(result)
+    }
+
+
+    private fun evaluateConfidenceMedia(result: Text) {
+        var totalConfidence = 0.0f
+        var elements = 0
+
+        for (block in result.textBlocks) {
+            for (line in block.lines) {
+                for (element in line.elements) {
+                    val confidence = element.confidence
+                    if (confidence > 0) { // ignora valores nulos (0.0f)
+                        totalConfidence += confidence
+                        elements++
+                    }
+                }
+            }
+        }
+
+        if (elements == 0) {
+            Toast.makeText(this, "Não foi possível avaliar a confiança do OCR", Toast.LENGTH_LONG)
+                .show()
+            return
+        }
+
+        val media = totalConfidence / elements
+        if (media >= 0.70f) {
+            showDialog(
+                "Documento legível",
+                "✅ O documento está legível (confiança: ${(media * 100).toInt()}%). Pronto para envio."
+            )
+        } else {
+            showDialog(
+                "Documento ilegível",
+                "⚠️ As informações não estão legíveis (confiança: ${(media * 100).toInt()}%). Por favor, envie uma nova imagem."
+            )
+        }
+    }
+
+
+    private fun showDialog(title: String, message: String) {
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+        builder.setTitle(title)
+        builder.setMessage(message)
+        builder.setPositiveButton("OK", null)
+        builder.show()
     }
 }
