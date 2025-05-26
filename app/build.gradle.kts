@@ -47,7 +47,12 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     // ML Kit
-    implementation ("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("androidx.activity:activity-ktx:1.8.0")
     implementation("androidx.core:core-ktx:1.12.0")
+
+    //Document Scanner
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
+
+
 }
