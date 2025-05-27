@@ -1,6 +1,5 @@
 package com.mobapp.ocr_app
 
-
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -14,7 +13,6 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
@@ -37,6 +35,7 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private lateinit var imageView: ImageView
+    private lateinit var imageViewId: ImageView
     private lateinit var textView: TextView
     private lateinit var imageFile: File
     private lateinit var photoURI: Uri
@@ -48,6 +47,8 @@ class MainActivity : AppCompatActivity() {
             if (result.resultCode == Activity.RESULT_OK) {
                 val imageBitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
                 imageView.setImageBitmap(imageBitmap)
+                imageView.visibility = View.VISIBLE
+                imageViewId.visibility = View.GONE
                 captureButton.visibility = View.VISIBLE
 
                 val image = InputImage.fromFilePath(this, photoURI)
@@ -80,7 +81,11 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
         imageView = findViewById<ImageView>(R.id.imageView)
+        imageView.visibility = View.GONE
+        imageViewId = findViewById<ImageView>(R.id.imageViewId)
+        imageViewId.visibility = View.VISIBLE
         textView = findViewById<TextView>(R.id.textView)
         captureButton = findViewById(R.id.captureButton)
         val scanButton = findViewById<Button>(R.id.scanButton)
@@ -100,6 +105,8 @@ class MainActivity : AppCompatActivity() {
                         GmsDocumentScanningResult.fromActivityResultIntent(result.data)
                     scanningResult?.pages?.firstOrNull()?.imageUri?.let { uri ->
                         imageView.setImageURI(uri)
+                        imageView.visibility = View.VISIBLE
+                        imageViewId.visibility = View.GONE
                         captureButton.visibility = View.VISIBLE
                         val image = InputImage.fromFilePath(this, uri)
                         val recognizer =
@@ -215,7 +222,7 @@ class MainActivity : AppCompatActivity() {
             for (line in block.lines) {
                 for (element in line.elements) {
                     val confidence = element.confidence
-                    if (confidence > 0) { // ignora valores nulos (0.0f)
+                    if (confidence > 0) {
                         totalConfidence += confidence
                         elements++
                     }
@@ -223,22 +230,23 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (elements == 0) {
-            Toast.makeText(this, "Não foi possível avaliar a confiança do OCR", Toast.LENGTH_LONG)
-                .show()
-            return
-        }
-
         val media = totalConfidence / elements
+
         if (media >= 0.70f) {
             showDialog(
-                "Documento legível",
-                "✅ O documento está legível (confiança: ${(media * 100).toInt()}%). Pronto para envio."
+                "Documento legível \nNível de confiança: ${(media * 100).toInt()}%",
+                "✅ Documento capturado com sucesso! Pronto para análise."
             )
+        } else if (elements == 0) {
+            showDialog(
+                "❌ Nenhuma informação identificada",
+                "Não foi possivel avaliar o seu documento. Por favor, envie a imagem novamente."
+            )
+
         } else {
             showDialog(
-                "Documento ilegível",
-                "⚠️ As informações não estão legíveis (confiança: ${(media * 100).toInt()}%). Por favor, envie uma nova imagem."
+                "Documento ilegível \nNível de confiança: ${(media * 100).toInt()}%",
+                "⚠️ As informações não estão legíveis. Por favor, tente novamente."
             )
         }
     }
