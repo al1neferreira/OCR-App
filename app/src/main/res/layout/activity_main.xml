@@ -55,22 +55,22 @@
 
             <Button
                 android:id="@+id/scanButton"
-                android:layout_width="300dp"
+                android:layout_width="350dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:layout_marginBottom="20dp"
-                android:backgroundTint="@color/orange"
+                android:background="@drawable/rounded_button_background"
                 android:textColor="@color/black"
                 android:text="Enviar documento" />
 
             <Button
                 android:id="@+id/captureButton"
-                android:layout_width="300dp"
+                android:layout_width="350dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:layout_marginBottom="20dp"
                 android:text="Extrair texto"
-                android:backgroundTint="@color/orange"
+                android:background="@drawable/rounded_button_background"
                 android:textColor="@color/black"
                 android:visibility="gone" />
 

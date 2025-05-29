@@ -16,6 +16,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
@@ -250,12 +251,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     private fun showDialog(title: String, message: String) {
-        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
-        builder.setTitle(title)
-        builder.setMessage(message)
-        builder.setPositiveButton("OK", null)
-        builder.show()
+        val view = layoutInflater.inflate(R.layout.custom_dialog, null)
+
+        val titleView = view.findViewById<TextView>(R.id.dialog_title)
+        val messageView = view.findViewById<TextView>(R.id.dialog_message)
+        val okButton = view.findViewById<Button>(R.id.dialog_ok_button)
+
+        titleView.text = title
+        messageView.text = message
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .create()
+
+        okButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        dialog.show()
     }
+
 }
