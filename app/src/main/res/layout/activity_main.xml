@@ -29,7 +29,7 @@
 
             <ImageView
                 android:id="@+id/imageView"
-                android:layout_width="match_parent"
+                android:layout_width="380dp"
                 android:layout_height="300dp"
                 android:visibility="gone"
                 android:scaleType="centerInside"/>
@@ -37,7 +37,7 @@
             <ImageView
                 android:id="@+id/imageViewId"
                 android:src="@drawable/pngwing_com"
-                android:layout_width="match_parent"
+                android:layout_width="380dp"
                 android:layout_height="300dp"
                 android:visibility="visible"
                 android:scaleType="centerInside"/>

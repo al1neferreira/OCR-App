@@ -1,7 +1,6 @@
 package com.mobapp.ocr_app
 
 import android.Manifest
-import android.app.Activity
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.icu.text.SimpleDateFormat
@@ -44,7 +43,7 @@ class MainActivity : AppCompatActivity() {
 
     private val takePicture =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
+            if (result.resultCode == RESULT_OK) {
                 val imageBitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
                 imageView.setImageBitmap(imageBitmap)
                 imageView.visibility = View.VISIBLE
@@ -100,7 +99,7 @@ class MainActivity : AppCompatActivity() {
 
         scannerLauncher =
             registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-                if (result.resultCode == Activity.RESULT_OK) {
+                if (result.resultCode == RESULT_OK) {
                     val scanningResult =
                         GmsDocumentScanningResult.fromActivityResultIntent(result.data)
                     scanningResult?.pages?.firstOrNull()?.imageUri?.let { uri ->
@@ -210,11 +209,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         textView.text = builder.toString()
-        evaluateConfidenceMedia(result)
+        evaluateAverageConfidence(result)
     }
 
 
-    private fun evaluateConfidenceMedia(result: Text) {
+    private fun evaluateAverageConfidence(result: Text) {
         var totalConfidence = 0.0f
         var elements = 0
 
@@ -232,7 +231,7 @@ class MainActivity : AppCompatActivity() {
 
         val media = totalConfidence / elements
 
-        if (media >= 0.70f) {
+        if (media >= 0.60f) {
             showDialog(
                 "Documento legível \nNível de confiança: ${(media * 100).toInt()}%",
                 "✅ Documento capturado com sucesso! Pronto para análise."
